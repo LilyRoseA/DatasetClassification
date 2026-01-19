@@ -1,0 +1,6 @@
+desert
+forest
+park
+parking
+road
+street

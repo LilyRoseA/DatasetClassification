@@ -1,0 +1,5 @@
+cloudy
+night
+rainy
+sunny
+snowy

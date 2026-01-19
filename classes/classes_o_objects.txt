@@ -1,0 +1,9 @@
+bush
+building
+fence
+grass
+mud
+sand
+pavement
+rock
+tree

@@ -1,0 +1,4 @@
+chair
+desk
+pillar
+trashcan

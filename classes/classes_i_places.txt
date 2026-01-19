@@ -1,0 +1,9 @@
+bedroom
+cafeteria
+class
+elevator lobby
+gymnasium
+hallway
+house
+office
+school
