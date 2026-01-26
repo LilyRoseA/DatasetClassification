@@ -1,6 +1,7 @@
 import os
 import clip
 import torch
+import pandas as pd
 from PIL import Image
 
 def run_split_indoor_outdoor(
@@ -18,7 +19,8 @@ def run_split_indoor_outdoor(
 
     text_inputs = torch.cat([clip.tokenize(prompt_template.format(c))
         for c in classes]).to(device)
-
+    
+    rows = []
     for dir_name, _, file_list in os.walk(root_dir):
         for image_name in file_list:
             image_file = os.path.join(dir_name, image_name)
@@ -39,12 +41,22 @@ def run_split_indoor_outdoor(
             print(f'\n{image_file} Top predictions:\n')
             for value, index in zip(values, indices):
                 print(f"{classes[index]:>10s}: {100 * value.item():.2f}%")
-                
+            
             if (classes[indices[0]] == "outdoor"):
                 destination_folder = "results\\outdoor"
             else:
                 destination_folder = "results\\indoor"
+
+            rows.append({
+                "image": image_name,
+                "I/O": "outdoor" if classes[indices[0]] == "outdoor" else "indoor",
+                "light/meteo": None,
+                "place": None,
+                "objects": []
+            })
+
             image.save(os.path.join(destination_folder, image_name))
+    return pd.DataFrame(rows)
 
 def run_clip_classification(
     root_dir: str,
@@ -52,7 +64,8 @@ def run_clip_classification(
     prompt_template: str,
     model_name: str = "ViT-B/32",
     top_k: int = 5,
-    device: str = None
+    device: str = None,
+    df_column: str = None
 ):
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     model, preprocess = clip.load(model_name, device)
@@ -95,57 +108,73 @@ def run_clip_classification(
             print(f"\n{image_path} Top predictions:")
             for value, index in zip(values, indices):
                 print(f"{classes[index]:>15s}: {100 * value.item():.2f}%")
+            if (df_column):
+                if (df_column == "objects"):
+                    pass
+                else:
+                    df.at[image_name, df_column] = classes[indices[0]]
+    return df
 
-run_split_indoor_outdoor(
+df = run_split_indoor_outdoor(
     root_dir="..\\testDataSet",
     classes_file="classes/classes_io.txt"
 )
+
+df = df.set_index("image")
 
 print("-------------------INDOOR------------------- \n")
 #INDOOR
 #places
 print("PLACES \n")
-run_clip_classification(
+df = run_clip_classification(
     root_dir="results/indoor",
     classes_file="classes/classes_i_places.txt",
-    prompt_template="this photo was taken in a {}"
+    prompt_template="this photo was taken in a {}",
+    df_column="place"
 )
 #objects
 print("OBJECTS \n")
-run_clip_classification(
+df = run_clip_classification(
     root_dir="results/indoor",
     classes_file="classes/classes_i_objects.txt",
     prompt_template="in this photo, there is at least one {}",
-    top_k=4
+    top_k=4,
+    df_column="objects"
 )
 #light
 print("LIGHT \n")
-run_clip_classification(
+df = run_clip_classification(
     root_dir="results/indoor",
     classes_file="classes/classes_i_light.txt",
-    prompt_template="in this photo, the level of light is {}"
+    prompt_template="in this photo, the level of light is {}",
+    df_column="light/meteo"
 )
 
 print("-------------------OUTDOOR------------------- \n")
 #OUTDOOR
 #places
 print("PLACES \n")
-run_clip_classification(
+df = run_clip_classification(
     root_dir="results/outdoor",
     classes_file="classes/classes_o_places.txt",
-    prompt_template="this photo was taken in a {}"
+    prompt_template="this photo was taken in a {}",
+    df_column="place"
 )
 #objects
 print("OBJECTS \n")
-run_clip_classification(
+df = run_clip_classification(
     root_dir="results/outdoor",
     classes_file="classes/classes_o_objects.txt",
-    prompt_template="in this photo, there is at least one {}"
+    prompt_template="in this photo, there is at least one {}",
+    df_column="objects"
 )
 #meteo
 print("METEO \n")
-run_clip_classification(
+df = run_clip_classification(
     root_dir="results/outdoor",
     classes_file="classes/classes_o_meteo.txt",
-    prompt_template="in this photo, it is {}"
+    prompt_template="in this photo, it is {}",
+    df_column="light/meteo"
 )
+
+print(df)
